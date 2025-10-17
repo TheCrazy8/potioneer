@@ -20,13 +20,13 @@ VSVersionInfo(
         StringTable(
           '040904B0',
           [
-            StringStruct('CompanyName', 'Hunger Bens'),
-            StringStruct('FileDescription', 'Hunger Bens Simulator'),
+            StringStruct('CompanyName', 'Potioneer'),
+            StringStruct('FileDescription', 'Potioneer - Potion Brewing Game'),
             StringStruct('FileVersion', '1.0.0.0'),
-            StringStruct('InternalName', 'HungerBens'),
-            StringStruct('LegalCopyright', '(c) 2025 Hunger Bens'),
-            StringStruct('OriginalFilename', 'HungerBens.exe'),
-            StringStruct('ProductName', 'Hunger Bens'),
+            StringStruct('InternalName', 'Potioneer'),
+            StringStruct('LegalCopyright', '(c) 2025 Potioneer'),
+            StringStruct('OriginalFilename', 'Potioneer.exe'),
+            StringStruct('ProductName', 'Potioneer'),
             StringStruct('ProductVersion', '1.0.0.0')
           ]
         )

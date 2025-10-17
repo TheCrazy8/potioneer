@@ -1,10 +1,10 @@
-; Inno Setup script to build HungerBensInstaller.exe
+; Inno Setup script to build PotioneerInstaller.exe
 ; Requires: Inno Setup 6 (iscc)
 
-#define MyAppName "Hunger Bens"
+#define MyAppName "Potioneer"
 #define MyAppPublisher "Your Company or Name"
-#define MyAppURL "https://github.com/TheCrazy8/hunger-bens"
-#define MyAppExeName "HungerBens.exe" ; Built by PyInstaller --name=HungerBens
+#define MyAppURL "https://github.com/TheCrazy8/potioneer"
+#define MyAppExeName "Potioneer.exe" ; Built by PyInstaller --name=Potioneer
 #define MyAppVersion GetEnv('APP_VERSION')
 #ifndef MyAppVersion
   #define MyAppVersion "1.0.0"
@@ -21,7 +21,7 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
-OutputBaseFilename=HungerBensInstaller
+OutputBaseFilename=PotioneerInstaller
 OutputDir=out
 WizardStyle=modern
 Compression=lzma
@@ -44,17 +44,16 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked
 
 [Dirs]
-; Create a shared data folder for assets writable by all users
-Name: "{commonappdata}\HungerBens"; Flags: uninsalwaysuninstall
-; Ensure plugins folder exists for machine-wide plugins
-Name: "{commonappdata}\HungerBens\plugins"; Flags: uninsalwaysuninstall
+; Create a shared data folder for assets writable by all users (optional)
+Name: "{commonappdata}\Potioneer"; Flags: uninsalwaysuninstall
+Name: "{commonappdata}\Potioneer\plugins"; Flags: uninsalwaysuninstall
 
 [Files]
 ; Install the application binaries built by PyInstaller (adjust Source if folder name differs)
-Source: "..\\dist\\HungerBens\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\\dist\\Potioneer\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; Optionally include default assets/configs into ProgramData (shared)
-; Source: "assets\*"; DestDir: "{commonappdata}\HungerBens"; Flags: ignoreversion recursesubdirs createallsubdirs onlyifdoesntexist
+; Source: "assets\*"; DestDir: "{commonappdata}\Potioneer"; Flags: ignoreversion recursesubdirs createallsubdirs onlyifdoesntexist
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -66,9 +65,9 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: no
 
 [UninstallDelete]
 ; Optionally remove shared data on uninstall; we prompt the user at uninstall time.
-Type: filesandordirs; Name: "{commonappdata}\HungerBens"; Check: ShouldRemoveUserData
-Type: filesandordirs; Name: "{localappdata}\HungerBens"; Check: ShouldRemoveUserData
-Type: filesandordirs; Name: "{userappdata}\HungerBens"; Check: ShouldRemoveUserData
+Type: filesandordirs; Name: "{commonappdata}\Potioneer"; Check: ShouldRemoveUserData
+Type: filesandordirs; Name: "{localappdata}\Potioneer"; Check: ShouldRemoveUserData
+Type: filesandordirs; Name: "{userappdata}\Potioneer"; Check: ShouldRemoveUserData
 
 [Code]
 var
@@ -82,11 +81,11 @@ end;
 function InitializeUninstall(): Boolean;
 begin
   RemoveUserData := False;
-  if DirExists(ExpandConstant('{commonappdata}\\HungerBens')) or
-     DirExists(ExpandConstant('{localappdata}\\HungerBens')) or
-     DirExists(ExpandConstant('{userappdata}\\HungerBens')) then
+  if DirExists(ExpandConstant('{commonappdata}\\Potioneer')) or
+     DirExists(ExpandConstant('{localappdata}\\Potioneer')) or
+     DirExists(ExpandConstant('{userappdata}\\Potioneer')) then
   begin
-    if MsgBox('Do you want to remove all Hunger Bens data (plugins, config, logs) from this machine?',
+    if MsgBox('Do you want to remove all Potioneer data (plugins, config, logs) from this machine?',
               mbConfirmation, MB_YESNO) = IDYES then
     begin
       RemoveUserData := True;
@@ -96,7 +95,7 @@ begin
 end;
 
 // Notes:
-// - Per-user data is best created by the application itself under {localappdata}\HungerBens
+// - Per-user data is best created by the application itself under {localappdata}\Potioneer
 //   at first run. Installing to {userappdata} during an elevated install can target the admin
 //   profile instead of the eventual end-user.
 // - If your PyInstaller output folder is named differently, change Source and MyAppExeName above.

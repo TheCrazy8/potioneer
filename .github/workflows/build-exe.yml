@@ -1,4 +1,4 @@
-name: Build Windows EXE
+name: Build Windows EXE (Potioneer)
 
 on:
   workflow_dispatch:
@@ -69,7 +69,7 @@ jobs:
         run: |
           $iscc = "C:\\Program Files (x86)\\Inno Setup 6\\iscc.exe"
           if (-Not (Test-Path $iscc)) { throw "Inno Setup iscc.exe not found at $iscc" }
-          & "$iscc" ".\installer\hungerbens.iss" | Out-Host
+          & "$iscc" ".\installer\potioneer.iss" | Out-Host
 
       - name: Generate release tag and name
         id: relmeta
@@ -80,7 +80,7 @@ jobs:
           $hex = -join (1..6 | ForEach-Object { $chars[(Get-Random -Minimum 0 -Maximum $chars.Length)] })
           "hex=$hex"            >> $env:GITHUB_OUTPUT
           "tag=build-$hex"      >> $env:GITHUB_OUTPUT
-          "name=Hunger Bens Build #$hex" >> $env:GITHUB_OUTPUT
+          "name=Potioneer Build #$hex" >> $env:GITHUB_OUTPUT
 
       - name: Generate color swatch image
         if: ${{ github.event_name != 'pull_request' }}
@@ -108,7 +108,7 @@ jobs:
           body: |
             ![#${{ steps.relmeta.outputs.hex }}](https://github.com/${{ github.repository }}/releases/download/${{ steps.relmeta.outputs.tag }}/color-${{ steps.relmeta.outputs.hex }}.png)
           files: |
-            installer/out/HungerBensInstaller.exe
+            installer/out/PotioneerInstaller.exe
             color-${{ steps.relmeta.outputs.hex }}.png
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -116,13 +116,13 @@ jobs:
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: HungerBensInstaller-${{ github.run_number }}
-          path: installer/out/HungerBensInstaller.exe
+          name: PotioneerInstaller-${{ github.run_number }}
+          path: installer/out/PotioneerInstaller.exe
           if-no-files-found: warn
 
       - name: Upload dist artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dist-HungerBens-${{ github.run_number }}
-          path: dist/HungerBens/**
+          name: dist-Potioneer-${{ github.run_number }}
+          path: dist/Potioneer/**
           if-no-files-found: ignore

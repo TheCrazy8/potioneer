@@ -9,7 +9,8 @@ print(f"Building from: {os.getcwd()}")
 # Run the script to make Python file into an EXE file
 PyInstaller.__main__.run([
 	'docs/main.py',
-	'--name=HungerBens',
+	'--name=Potioneer',
+	'--add-data=docs/assets;assets',
 	'--add-data=icon.ico;.',
 	'--windowed',
 	'--icon=icon.ico',

@@ -1,6 +1,7 @@
-# Runtime dependencies for Hunger Bens
+# Runtime dependencies for Potioneer
 # Note: tkinter is part of the standard library on Windows and not installed via pip.
 sv-ttk
+Pillow>=10.0.0
 
 # Optional build-time tools (installed separately in CI)
 # pyinstaller
