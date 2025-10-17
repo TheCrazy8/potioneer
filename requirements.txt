@@ -1,0 +1,6 @@
+# Runtime dependencies for Hunger Bens
+# Note: tkinter is part of the standard library on Windows and not installed via pip.
+sv-ttk
+
+# Optional build-time tools (installed separately in CI)
+# pyinstaller

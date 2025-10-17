@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hunger Bens .ben Plugin Generator</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <meta name="description" content="Build Hunger Bens plugin .ben files (zip archives) entirely in your browser." />
+</head>
+<body>
+  <header class="container">
+    <h1>Hunger Bens .ben Plugin Generator</h1>
+    <p>Generate Windows plugins for Hunger Bens as .ben files (they are zip archives with a .ben extension). No upload or server required.</p>
+    <details>
+      <summary>What is a valid plugin?</summary>
+      <ul>
+        <li>Entry file must be one of:
+          <ul>
+            <li><code>plugin.py</code> at the root (default)</li>
+            <li><code>plugin/__init__.py</code> package entry</li>
+            <li>Exactly one <code>.py</code> file at the root (fallback)</li>
+          </ul>
+        </li>
+        <li>Optional API functions inside the entry module:
+          <ul>
+            <li><code>get_custom_content()</code> → dict like { weapons, items, hazards }</li>
+            <li><code>get_events()</code> → { day: [callables], night: [callables], global: [callables] }</li>
+            <li><code>get_event_weights()</code> → { callable or name: weight }</li>
+          </ul>
+        </li>
+      </ul>
+    </details>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Quick Builder</h2>
+      <form id="quickForm" novalidate>
+        <div class="grid">
+          <label>Plugin ID
+            <input type="text" id="qb_id" placeholder="my_cool_plugin" required />
+          </label>
+          <label>Author
+            <input type="text" id="qb_author" placeholder="Your name" />
+          </label>
+        </div>
+        <label>Description
+          <input type="text" id="qb_desc" placeholder="Short description" />
+        </label>
+        <fieldset>
+          <legend>Entry type</legend>
+          <label><input type="radio" name="entryType" value="single" checked /> Root plugin.py (recommended)</label>
+          <label><input type="radio" name="entryType" value="package" /> Package plugin/__init__.py</label>
+        </fieldset>
+        <div class="grid">
+          <label>Include README.txt
+            <input type="checkbox" id="qb_include_readme" checked />
+          </label>
+          <label>Include LICENSE.txt (no default)
+            <input type="checkbox" id="qb_include_license" />
+          </label>
+        </div>
+        <label>Custom Content JSON (optional)
+          <textarea id="qb_content_json" rows="8" placeholder='{"weapons":{"laser spoon":"zaps"}, "items":["force field"], "hazards":{"gravity well":"crushed"}}'></textarea>
+        </label>
+        <label class="inline">
+          <input type="checkbox" id="qb_add_sample_event" /> Add sample event scaffold
+        </label>
+        <div id="qb_errors" class="errors" role="alert" aria-live="polite"></div>
+        <div class="actions">
+          <button type="button" id="qb_build">Build .ben</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Advanced Builder</h2>
+      <p>Compose an arbitrary plugin bundle. Ensure you have a valid entry (root <code>plugin.py</code> or <code>plugin/__init__.py</code>).</p>
+      <div class="grid">
+        <div>
+          <div class="toolbar">
+            <button id="ab_add_file" type="button">Add file…</button>
+            <button id="ab_add_folder" type="button">Add folder…</button>
+            <label class="file-input">
+              <input type="file" id="ab_upload" multiple />
+              Import files…
+            </label>
+          </div>
+          <ul id="tree" class="tree" aria-label="Virtual file tree"></ul>
+        </div>
+        <div>
+          <label>Selected file path
+            <input type="text" id="ab_path" placeholder="path/to/file.py" />
+          </label>
+          <label>File contents
+            <textarea id="ab_contents" rows="16" placeholder="# file contents here"></textarea>
+          </label>
+          <div class="actions">
+            <button id="ab_save" type="button">Save file</button>
+            <button id="ab_delete" type="button" class="danger">Delete</button>
+          </div>
+          <div class="hint">Hint: Use forward slashes in paths. To make a package entry, create <code>plugin/__init__.py</code>.</div>
+        </div>
+      </div>
+      <div id="ab_errors" class="errors" role="alert" aria-live="polite"></div>
+      <div class="actions">
+        <button id="ab_build" type="button">Build .ben from Advanced Builder</button>
+      </div>
+    </section>
+
+    <section class="card help">
+      <h2>Test your .ben</h2>
+      <ol>
+        <li>Copy the downloaded <code>.ben</code> into a recognized plugins folder on Windows. In the GUI, open Settings → Plugins to see folders.</li>
+        <li>Run the simulator with plugins enabled. Check the log for "[Plugins] Loaded …" and integration messages.</li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="container small">
+    <p>Built for Hunger Bens. .ben files are zip archives with a different extension.</p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

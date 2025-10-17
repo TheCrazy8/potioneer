@@ -1,0 +1,128 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+    inputs:
+      python-version:
+        description: 'Python version to use'
+        default: '3.11'
+        required: true
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ github.event.inputs.python-version || '3.11' }}
+          cache: 'pip'
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install dependencies (requirements.txt if present)
+        if: ${{ hashFiles('requirements.txt') != '' }}
+        run: pip install -r requirements.txt
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build EXE via makeexe.py
+        shell: powershell
+        run: |
+          python .\makeexe.py
+
+      - name: Cache Inno Setup
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\Program Files (x86)\Inno Setup 6
+            C:\ProgramData\chocolatey\lib\innosetup
+            C:\ProgramData\chocolatey\bin
+          key: innosetup-6-${{ runner.os }}-v1
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\iscc.exe"
+          if (Test-Path $iscc) {
+            Write-Host "Inno Setup already present (from cache)."
+          } else {
+            choco install innosetup -y --no-progress
+          }
+
+      - name: Compile installer (Inno Setup)
+        shell: powershell
+        env:
+          APP_VERSION: ${{ github.run_number }}
+        run: |
+          $iscc = "C:\\Program Files (x86)\\Inno Setup 6\\iscc.exe"
+          if (-Not (Test-Path $iscc)) { throw "Inno Setup iscc.exe not found at $iscc" }
+          & "$iscc" ".\installer\hungerbens.iss" | Out-Host
+
+      - name: Generate release tag and name
+        id: relmeta
+        if: ${{ github.event_name != 'pull_request' }}
+        shell: powershell
+        run: |
+          $chars = '0123456789ABCDEF'
+          $hex = -join (1..6 | ForEach-Object { $chars[(Get-Random -Minimum 0 -Maximum $chars.Length)] })
+          "hex=$hex"            >> $env:GITHUB_OUTPUT
+          "tag=build-$hex"      >> $env:GITHUB_OUTPUT
+          "name=Hunger Bens Build #$hex" >> $env:GITHUB_OUTPUT
+
+      - name: Generate color swatch image
+        if: ${{ github.event_name != 'pull_request' }}
+        shell: powershell
+        run: |
+          $hex = "${{ steps.relmeta.outputs.hex }}"
+          if (-not $hex) { throw "Hex value is empty" }
+          Add-Type -AssemblyName System.Drawing
+          $bmp = New-Object System.Drawing.Bitmap 256,256
+          $r = [Convert]::ToInt32($hex.Substring(0,2),16)
+          $g = [Convert]::ToInt32($hex.Substring(2,2),16)
+          $b = [Convert]::ToInt32($hex.Substring(4,2),16)
+          $gfx = [System.Drawing.Graphics]::FromImage($bmp)
+          $brush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb($r,$g,$b))
+          $gfx.FillRectangle($brush,0,0,256,256)
+          $bmp.Save("color-$hex.png", [System.Drawing.Imaging.ImageFormat]::Png)
+
+      - name: Create GitHub Release and upload installer
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.relmeta.outputs.tag }}
+          name: ${{ steps.relmeta.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          body: |
+            ![#${{ steps.relmeta.outputs.hex }}](https://github.com/${{ github.repository }}/releases/download/${{ steps.relmeta.outputs.tag }}/color-${{ steps.relmeta.outputs.hex }}.png)
+          files: |
+            installer/out/HungerBensInstaller.exe
+            color-${{ steps.relmeta.outputs.hex }}.png
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: HungerBensInstaller-${{ github.run_number }}
+          path: installer/out/HungerBensInstaller.exe
+          if-no-files-found: warn
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-HungerBens-${{ github.run_number }}
+          path: dist/HungerBens/**
+          if-no-files-found: ignore

@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Hunger Bens Web Simulator</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+<style>
+  body { font-family: system-ui, Arial, sans-serif; margin: 0; background:#111; color:#eee; }
+  header { background:#222; padding:1rem; }
+  h1 { margin:0; font-size:1.4rem; }
+  main { padding:1rem; display:flex; flex-direction:column; gap:1rem; }
+  fieldset { border:1px solid #444; padding:0.75rem 1rem; }
+  legend { padding:0 .5rem; }
+  label { display:block; margin:.4rem 0 .15rem; font-size:.85rem; text-transform:uppercase; letter-spacing:.08em; }
+  input[type=text], input[type=number], textarea { width:100%; box-sizing:border-box; padding:.5rem; background:#1b1b1b; color:#eee; border:1px solid #333; border-radius:4px; font-family:monospace; }
+  textarea { min-height:140px; resize:vertical; }
+  button { background:#444; color:#eee; border:1px solid #555; padding:.55rem .9rem; border-radius:4px; cursor:pointer; font-weight:600; }
+  button:hover { background:#555; }
+  select { background:#1b1b1b; color:#eee; border:1px solid #333; border-radius:4px; padding:.45rem .5rem; }
+  #log { background:#000; min-height:280px; white-space:pre-wrap; padding:.75rem; border:1px solid #333; font-family:monospace; overflow-y:auto; }
+  #log .hdr { font-weight:700; }
+  #log .bold { font-weight:700; }
+  #log .italic { font-style:italic; }
+  .row { display:flex; gap:1rem; flex-wrap:wrap; }
+  .grow { flex:1; min-width:220px; }
+  footer { text-align:center; font-size:.7rem; padding:1rem 0 2rem; color:#888; }
+  a { color:#7cc3ff; }
+  .inline { display:inline-block; margin-right:.6rem; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { border-bottom:1px solid #333; padding:.4rem .3rem; text-align:left; }
+  th { font-size:.8rem; text-transform:uppercase; color:#bbb; }
+  .actions { white-space:nowrap; }
+  .pill { display:inline-block; padding:.15rem .5rem; border:1px solid #333; border-radius:999px; font-size:.8rem; margin:.15rem .25rem .15rem 0; }
+  details.advanced { margin-top:.5rem; }
+</style>
+</head>
+<body>
+<header><h1>Hunger Bens Web Simulator (Pyodide)</h1></header>
+<a href="https://thecrazy8.github.io/hunger-bens/ben-generator/" >Make a .ben plugin using the Ben Generator</a>
+<main>
+  <fieldset>
+    <legend>Parameters</legend>
+    <div class="row">
+      <div class="grow">
+        <label for="seed">Seed (optional)</label>
+        <input type="text" id="seed" placeholder="e.g. 42"/>
+      </div>
+      <div>
+        <label for="days">Max Days</label>
+        <input type="number" id="days" value="30" min="1" max="200"/>
+      </div>
+      <div>
+        <label for="strict">Strict Shutdown Day</label>
+        <input type="number" id="strict" placeholder="(blank)" min="1" max="200"/>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Roster Builder</legend>
+    <div class="row">
+      <div class="grow">
+        <label for="r_key">Key</label>
+        <input type="text" id="r_key" placeholder="unique-id (used when roster type is dict)"/>
+      </div>
+      <div class="grow">
+        <label for="r_name">Name</label>
+        <input type="text" id="r_name" placeholder="Tribute name"/>
+      </div>
+      <div>
+        <label for="r_age">Age</label>
+        <input type="number" id="r_age" min="1" max="120" placeholder="e.g. 18"/>
+      </div>
+      <div>
+        <label for="r_district">District</label>
+        <input type="number" id="r_district" min="1" max="20" placeholder="e.g. 3"/>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <button id="addTributeBtn" type="button">Add Tribute</button>
+      </div>
+      <div>
+        <label for="rosterType">Roster Type</label>
+        <select id="rosterType">
+          <option value="list" selected>List of objects</option>
+          <option value="dict">Dict keyed by "key"</option>
+        </select>
+      </div>
+    </div>
+    <div style="overflow:auto;">
+      <table aria-label="Roster">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Key</th>
+            <th>Name</th>
+            <th>Age</th>
+            <th>District</th>
+            <th class="actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="rosterTableBody"></tbody>
+      </table>
+    </div>
+
+    <details class="advanced">
+      <summary>Advanced: Raw Roster JSON</summary>
+      <label for="roster">Custom Roster JSON (list or dict)</label>
+      <textarea id="roster" placeholder='[{"key":"x","name":"Alpha","age":20,"district":3}]'></textarea>
+    </details>
+  </fieldset>
+
+  <fieldset>
+    <legend>Content Builder</legend>
+    <h3 style="margin:.2rem 0 .4rem; font-size:1rem;">Weapons</h3>
+    <div class="row">
+      <div class="grow">
+        <label for="w_name">Name</label>
+        <input type="text" id="w_name" placeholder="e.g. laser spoon"/>
+      </div>
+      <div class="grow">
+        <label for="w_desc">Description/Effect</label>
+        <input type="text" id="w_desc" placeholder="e.g. vaporizes"/>
+      </div>
+      <div style="align-self:end;">
+        <button id="addWeaponBtn" type="button">Add Weapon</button>
+      </div>
+    </div>
+    <div id="weaponsList" aria-live="polite"></div>
+
+    <h3 style="margin:1rem 0 .4rem; font-size:1rem;">Items</h3>
+    <div class="row">
+      <div class="grow">
+        <label for="i_name">Item</label>
+        <input type="text" id="i_name" placeholder="e.g. force field"/>
+      </div>
+      <div style="align-self:end;">
+        <button id="addItemBtn" type="button">Add Item</button>
+      </div>
+    </div>
+    <div id="itemsList" aria-live="polite"></div>
+
+    <h3 style="margin:1rem 0 .4rem; font-size:1rem;">Hazards</h3>
+    <div class="row">
+      <div class="grow">
+        <label for="h_name">Name</label>
+        <input type="text" id="h_name" placeholder="e.g. gravity well"/>
+      </div>
+      <div class="grow">
+        <label for="h_desc">Description/Effect</label>
+        <input type="text" id="h_desc" placeholder="e.g. spaghettified"/>
+      </div>
+      <div style="align-self:end;">
+        <button id="addHazardBtn" type="button">Add Hazard</button>
+      </div>
+    </div>
+    <div id="hazardsList" aria-live="polite"></div>
+
+    <details class="advanced">
+      <summary>Advanced: Raw Content JSON</summary>
+      <label for="content">Content JSON (extend weapons/items/hazards)</label>
+      <textarea id="content" placeholder='{"weapons":{"laser spoon":"vaporizes"},"items":["force field"],"hazards":{"gravity well":"spaghettified"}}'></textarea>
+    </details>
+  </fieldset>
+
+  <fieldset>
+    <legend>Run</legend>
+    <div class="row">
+      <button id="runBtn">Run Simulation</button>
+      <button id="clearBtn" type="button">Clear Log</button>
+      <button id="downloadBtn" type="button" disabled>Download JSON Log</button>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Step Mode (Web)</legend>
+    <div class="row">
+      <button id="startStepBtn" type="button">Start Step Mode</button>
+      <button id="stepOnceBtn" type="button">Step Once</button>
+      <span class="inline">
+        <label for="stepN" class="inline" style="margin: 0 .4rem 0 .7rem;">Next N</label>
+        <input id="stepN" type="number" min="1" max="1000" value="5" style="width:5rem;"/>
+        <button id="stepNBtn" type="button">Next N</button>
+      </span>
+    </div>
+    <div class="row">
+      <button id="nextDayBtn" type="button">Next Day (to night)</button>
+      <button id="nextNightBtn" type="button">Next Night (to day)</button>
+      <span class="inline">
+        <label for="untilLeft" class="inline" style="margin: 0 .4rem 0 .7rem;">Run until X left</label>
+        <input id="untilLeft" type="number" min="1" max="200" value="4" style="width:5rem;"/>
+        <button id="untilLeftBtn" type="button">Run</button>
+      </span>
+      <button id="finishBtn" type="button">Finish</button>
+    </div>
+    <div id="stepStatus" style="margin-top:.5rem; color:#9ad; font-size:.9rem;">Step mode idle.</div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Log Output</legend>
+    <div id="log" aria-live="polite"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Status</legend>
+    <div id="status">Loading Pyodide...</div>
+  </fieldset>
+</main>
+<footer>
+  Built for static hosting on GitHub Pages. Full simulator loaded via <a href="https://pyodide.org/" target="_blank" rel="noopener">Pyodide</a>.
+</footer>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+<script>
+// UI state for builders
+const rosterData = [];
+const weaponsData = []; // [{name, desc}]
+const itemsData = [];   // [name]
+const hazardsData = []; // [{name, desc}]
+
+const statusEl = document.getElementById('status');
+const logEl = document.getElementById('log');
+const runBtn = document.getElementById('runBtn');
+const clearBtn = document.getElementById('clearBtn');
+const downloadBtn = document.getElementById('downloadBtn');
+// Step controls
+const startStepBtn = document.getElementById('startStepBtn');
+const stepOnceBtn = document.getElementById('stepOnceBtn');
+const stepNInput = document.getElementById('stepN');
+const stepNBtn = document.getElementById('stepNBtn');
+const nextDayBtn = document.getElementById('nextDayBtn');
+const nextNightBtn = document.getElementById('nextNightBtn');
+const untilLeftInput = document.getElementById('untilLeft');
+const untilLeftBtn = document.getElementById('untilLeftBtn');
+const finishBtn = document.getElementById('finishBtn');
+const stepStatus = document.getElementById('stepStatus');
+let pyodide = null;
+let lastRunData = null;
+let simulatorReady = false;
+let stepActive = false;
+let stepFinished = false;
+let lastLogIndex = 0;
+
+function appendLog(line){
+  const div = document.createElement('div');
+  const text = String(line ?? '');
+  const isHeader = /^\s*(?:#{1,6}\s|--- |\*\*\* |=+ |VICTOR:|Final standings:|Fallen|=== Statistics)/.test(text);
+  if(isHeader) div.classList.add('hdr');
+  // Inline **bold** and _italic_
+  const parts = [];
+  let i = 0;
+  const pushText = (t, cls) => { const s = document.createElement('span'); s.textContent = t; if(cls) s.className = cls; parts.push(s); };
+  const regex = /(\*\*([^*]+)\*\*)|(_([^_]+)_)/g;
+  let m;
+  while((m = regex.exec(text))){
+    if(m.index > i) pushText(text.slice(i, m.index));
+    if(m[2]) pushText(m[2], 'bold'); else if(m[4]) pushText(m[4], 'italic');
+    i = m.index + m[0].length;
+  }
+  if(i < text.length) pushText(text.slice(i));
+  if(parts.length === 0) pushText(text);
+  parts.forEach(el => div.appendChild(el));
+  logEl.appendChild(div);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ---------- Roster builder ----------
+function addTribute() {
+  const key = document.getElementById('r_key').value.trim();
+  const name = document.getElementById('r_name').value.trim();
+  const age = parseInt(document.getElementById('r_age').value, 10);
+  const district = parseInt(document.getElementById('r_district').value, 10);
+
+  if (!name) { alert('Name is required'); return; }
+  if (isNaN(age)) { alert('Age is required'); return; }
+  if (isNaN(district)) { alert('District is required'); return; }
+
+  rosterData.push({ key, name, age, district });
+  document.getElementById('r_key').value = '';
+  document.getElementById('r_name').value = '';
+  document.getElementById('r_age').value = '';
+  document.getElementById('r_district').value = '';
+  renderRoster();
+}
+
+function removeTribute(idx) {
+  rosterData.splice(idx, 1);
+  renderRoster();
+}
+
+function renderRoster() {
+  const tbody = document.getElementById('rosterTableBody');
+  tbody.textContent = '';
+  rosterData.forEach((t, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td>${t.key ? escapeHtml(t.key) : ''}</td>
+      <td>${escapeHtml(t.name)}</td>
+      <td>${Number.isFinite(t.age) ? t.age : ''}</td>
+      <td>${Number.isFinite(t.district) ? t.district : ''}</td>
+      <td class="actions">
+        <button type="button" data-i="${i}" class="rmTribute">Remove</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('.rmTribute').forEach(btn => {
+    btn.addEventListener('click', (e) => removeTribute(parseInt(e.currentTarget.dataset.i, 10)));
+  });
+}
+
+// ---------- Content builder ----------
+function addWeapon() {
+  const name = document.getElementById('w_name').value.trim();
+  const desc = document.getElementById('w_desc').value.trim();
+  if (!name) { alert('Weapon name is required'); return; }
+  weaponsData.push({ name, desc });
+  document.getElementById('w_name').value = '';
+  document.getElementById('w_desc').value = '';
+  renderWeapons();
+}
+function removeWeapon(idx) {
+  weaponsData.splice(idx, 1);
+  renderWeapons();
+}
+function renderWeapons() {
+  const wrap = document.getElementById('weaponsList');
+  wrap.textContent = '';
+  if (weaponsData.length === 0) return;
+  const tbl = document.createElement('table');
+  tbl.innerHTML = `
+    <thead><tr><th>#</th><th>Name</th><th>Description</th><th class="actions">Actions</th></tr></thead>
+    <tbody></tbody>`;
+  const tbody = tbl.querySelector('tbody');
+  weaponsData.forEach((w, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td>${escapeHtml(w.name)}</td>
+      <td>${escapeHtml(w.desc || '')}</td>
+      <td class="actions"><button type="button" data-i="${i}" class="rmWeapon">Remove</button></td>`;
+    tbody.appendChild(tr);
+  });
+  wrap.appendChild(tbl);
+  wrap.querySelectorAll('.rmWeapon').forEach(btn => {
+    btn.addEventListener('click', (e) => removeWeapon(parseInt(e.currentTarget.dataset.i, 10)));
+  });
+}
+
+function addItem() {
+  const name = document.getElementById('i_name').value.trim();
+  if (!name) { alert('Item name is required'); return; }
+  itemsData.push(name);
+  document.getElementById('i_name').value = '';
+  renderItems();
+}
+function removeItem(idx) {
+  itemsData.splice(idx, 1);
+  renderItems();
+}
+function renderItems() {
+  const wrap = document.getElementById('itemsList');
+  wrap.textContent = '';
+  if (itemsData.length === 0) return;
+  const frag = document.createDocumentFragment();
+  itemsData.forEach((s, i) => {
+    const pill = document.createElement('span');
+    pill.className = 'pill';
+    pill.textContent = s;
+    const btn = document.createElement('button');
+    btn.textContent = '×';
+    btn.style.marginLeft = '.4rem';
+    btn.style.padding = '.1rem .4rem';
+    btn.addEventListener('click', () => removeItem(i));
+    const wrapPill = document.createElement('span');
+    wrapPill.appendChild(pill);
+    wrapPill.appendChild(btn);
+    wrapPill.style.marginRight = '.25rem';
+    frag.appendChild(wrapPill);
+  });
+  wrap.appendChild(frag);
+}
+
+function addHazard() {
+  const name = document.getElementById('h_name').value.trim();
+  const desc = document.getElementById('h_desc').value.trim();
+  if (!name) { alert('Hazard name is required'); return; }
+  hazardsData.push({ name, desc });
+  document.getElementById('h_name').value = '';
+  document.getElementById('h_desc').value = '';
+  renderHazards();
+}
+function removeHazard(idx) {
+  hazardsData.splice(idx, 1);
+  renderHazards();
+}
+function renderHazards() {
+  const wrap = document.getElementById('hazardsList');
+  wrap.textContent = '';
+  if (hazardsData.length === 0) return;
+  const tbl = document.createElement('table');
+  tbl.innerHTML = `
+    <thead><tr><th>#</th><th>Name</th><th>Description</th><th class="actions">Actions</th></tr></thead>
+    <tbody></tbody>`;
+  const tbody = tbl.querySelector('tbody');
+  hazardsData.forEach((h, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td>${escapeHtml(h.name)}</td>
+      <td>${escapeHtml(h.desc || '')}</td>
+      <td class="actions"><button type="button" data-i="${i}" class="rmHazard">Remove</button></td>`;
+    tbody.appendChild(tr);
+  });
+  wrap.appendChild(tbl);
+  wrap.querySelectorAll('.rmHazard').forEach(btn => {
+    btn.addEventListener('click', (e) => removeHazard(parseInt(e.currentTarget.dataset.i, 10)));
+  });
+}
+
+// ---------- Sync builders -> hidden JSON textareas ----------
+function syncBuildersToJSON() {
+  // Roster
+  const rosterType = document.getElementById('rosterType').value;
+  let rosterObj;
+  if (rosterType === 'dict') {
+    const m = {};
+    rosterData.forEach((t, i) => {
+      const key = t.key || `t${i+1}`;
+      const { key: _k, ...rest } = t;
+      m[key] = rest;
+    });
+    rosterObj = m;
+  } else {
+    rosterObj = rosterData.slice();
+  }
+  document.getElementById('roster').value = JSON.stringify(rosterObj, null, 2);
+
+  // Content
+  const weapons = {};
+  weaponsData.forEach(w => { weapons[w.name] = w.desc || ''; });
+  const hazards = {};
+  hazardsData.forEach(h => { hazards[h.name] = h.desc || ''; });
+  const contentObj = {
+    weapons,
+    items: itemsData.slice(),
+    hazards
+  };
+  document.getElementById('content').value = JSON.stringify(contentObj, null, 2);
+}
+
+function escapeHtml(s) {
+  return (s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Wire builder buttons
+document.getElementById('addTributeBtn').addEventListener('click', addTribute);
+document.getElementById('addWeaponBtn').addEventListener('click', addWeapon);
+document.getElementById('addItemBtn').addEventListener('click', addItem);
+document.getElementById('addHazardBtn').addEventListener('click', addHazard);
+
+// ---------- Pyodide / Simulator ----------
+async function initPyodide(){
+  try {
+    pyodide = await loadPyodide({indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/'});
+    statusEl.textContent = 'Pyodide loaded. Importing simulator...';
+    // Fetch main.py and import without running its CLI entry.
+    const resp = await fetch('main.py');
+    const code = await resp.text();
+    pyodide.FS.writeFile('main.py', code);
+    const importCode = `
+import os, importlib.util, sys
+os.environ['HUNGER_BENS_NO_INTERACTIVE']='1'
+spec = importlib.util.spec_from_file_location('hunger_main','main.py')
+mod = importlib.util.module_from_spec(spec)
+sys.modules['hunger_main']=mod
+spec.loader.exec_module(mod)
+`;
+    await pyodide.runPythonAsync(importCode);
+    simulatorReady = true;
+    statusEl.textContent = 'Ready.';
+  } catch(e){
+    statusEl.textContent = 'Failed to load Pyodide: ' + e;
+  }
+}
+initPyodide();
+
+clearBtn.addEventListener('click', () => { logEl.textContent=''; });
+
+runBtn.addEventListener('click', async () => {
+  if(!pyodide || !simulatorReady){ appendLog('Simulator not loaded yet.'); return; }
+  // Ensure JSON textareas reflect builder inputs
+  syncBuildersToJSON();
+
+  logEl.textContent='';
+  statusEl.textContent='Running simulation...';
+  downloadBtn.disabled = true;
+
+  const seedVal = document.getElementById('seed').value.trim();
+  const daysVal = parseInt(document.getElementById('days').value,10) || 30;
+  const strictVal = document.getElementById('strict').value.trim();
+  const rosterTxt = document.getElementById('roster').value.trim();
+  const contentTxt = document.getElementById('content').value.trim();
+  const pySeedLiteral = seedVal !== '' && /^\d+$/.test(seedVal) ? seedVal : 'None';
+  const pyStrictLiteral = strictVal !== '' && /^\d+$/.test(strictVal) ? strictVal : 'None';
+
+  const pyCode = `
+import json, datetime
+import importlib
+hm = importlib.import_module('hunger_main')
+
+# Inputs
+seed = ${pySeedLiteral}
+max_days = ${daysVal}
+strict_day = ${pyStrictLiteral}
+roster_text = ${JSON.stringify(rosterTxt)}
+content_text = ${JSON.stringify(contentTxt)}
+
+# Optional content integration (if available)
+try:
+  load_custom_content_from_string = getattr(hm, 'load_custom_content_from_string', None)
+  integrate_custom_content = getattr(hm, 'integrate_custom_content', None)
+  if content_text and load_custom_content_from_string and integrate_custom_content:
+    try:
+      custom = load_custom_content_from_string(content_text)
+      integrate_custom_content(custom)
+    except Exception:
+      pass
+except Exception:
+  pass
+
+# Parse optional roster
+roster = None
+if roster_text:
+  try:
+    roster = json.loads(roster_text)
+  except Exception:
+    roster = None
+
+# Capture log lines
+log_lines = []
+def capture(line):
+  try:
+    log_lines.append(str(line))
+  except Exception:
+    log_lines.append('[unprintable log line]')
+
+run_simulation = getattr(hm, 'run_simulation')
+
+# Call with flexible kwargs for strict shutdown name
+sim = None
+try:
+  sim = run_simulation(seed=seed, max_days=max_days, roster=roster, strict_shutdown=strict_day, log_callback=capture)
+except TypeError:
+  try:
+    sim = run_simulation(seed=seed, max_days=max_days, roster=roster, strict_shutdown_day=strict_day, log_callback=capture)
+  except TypeError:
+    sim = run_simulation(seed=seed, max_days=max_days, roster=roster, log_callback=capture)
+
+# Sanitization helper
+def _sanitize(o):
+  if o is None or isinstance(o, (bool, int, float, str)):
+    return o
+  if isinstance(o, (list, tuple, set)):
+    return [_sanitize(x) for x in list(o)]
+  if isinstance(o, dict):
+    return {str(k): _sanitize(v) for k,v in o.items()}
+  if isinstance(o, datetime.datetime):
+    return o.isoformat()
+  if hasattr(o, 'isoformat'):
+    try:
+      return o.isoformat()
+    except Exception:
+      pass
+  # Try dataclass asdict-like
+  try:
+    from dataclasses import asdict, is_dataclass
+    if is_dataclass(o):
+      return _sanitize(asdict(o))
+  except Exception:
+    pass
+  return str(o)
+
+# Extract structured data
+alliances = {}
+try:
+  alliances_obj = getattr(sim, 'alliances', None)
+  if alliances_obj is not None:
+    to_dict = getattr(alliances_obj, 'to_dict', None)
+    alliances = _sanitize(to_dict()) if callable(to_dict) else _sanitize(alliances_obj)
+except Exception as e:
+  log_lines.append(f'Alliances extraction error: {e}')
+  alliances = {}
+
+tributes_out = []
+try:
+  tribs = getattr(sim, 'tributes', [])
+  to_dict_fn = getattr(sim, '_tribute_to_dict', None)
+  for t in tribs:
+    td = None
+    if callable(to_dict_fn):
+      try:
+        td = to_dict_fn(t)
+      except Exception:
+        td = None
+    if td is None:
+      # Fallback safe fields
+      td = {
+        'key': getattr(t,'key', None),
+        'name': getattr(t,'name',''),
+        'age': getattr(t,'age', None),
+        'gender': getattr(t,'gender', None),
+        'district': getattr(t,'district', None),
+        'alive': bool(getattr(t,'alive', True)),
+        'kills': int(getattr(t,'kills', 0) or 0),
+        'morale': int(getattr(t,'morale', 0) or 0),
+        'notoriety': int(getattr(t,'notoriety', 0) or 0),
+        'status': list(getattr(t,'status', []) or []),
+        'inventory': list(getattr(t,'inventory', []) or []),
+        'cause_of_death': getattr(t,'cause_of_death', None),
+        'hunger': int(getattr(t,'hunger', 0) or 0),
+        'stamina': int(getattr(t,'stamina', 0) or 0),
+        'traits': list(getattr(t,'traits', []) or []),
+        'region': getattr(t,'region', None),
+      }
+    tributes_out.append(_sanitize(td))
+except Exception as e:
+  log_lines.append(f'Tributes extraction error: {e}')
+  tributes_out = []
+
+try:
+  death_log = _sanitize(getattr(sim, 'death_log', []))
+except Exception as e:
+  log_lines.append(f'Death log extraction error: {e}')
+  death_log = []
+
+try:
+  stats = _sanitize(getattr(sim, 'history_stats', {}))
+except Exception as e:
+  log_lines.append(f'Stats extraction error: {e}')
+  stats = {}
+
+result = {
+  'seed': seed,
+  'max_days': max_days,
+  'strict_shutdown': strict_day,
+  'log': log_lines,
+  'alliances': alliances,
+  'tributes': tributes_out,
+  'death_log': death_log,
+  'stats': stats,
+}
+`;
+  try {
+    await pyodide.runPythonAsync(pyCode + "\nimport json\nresult_json = json.dumps(result)\n");
+    const resultStr = pyodide.globals.get('result_json');
+    const result = JSON.parse(resultStr);
+    lastRunData = result;
+    appendLog('Simulation complete.');
+    statusEl.textContent='Complete.';
+    if(Array.isArray(result.log)){
+      for(const line of result.log){ appendLog(line); }
+    } else if(result.log && typeof result.log === 'object') {
+      for(const k of Object.keys(result.log)){ appendLog(result.log[k]); }
+    } else if(typeof result.log === 'string') {
+      appendLog(result.log);
+    }
+    // Compact summary for web parity
+    try {
+      const tribs = Array.isArray(result.tributes) ? result.tributes : [];
+      appendLog('');
+      appendLog('=== Summary (Vitals & Traits) ===');
+      tribs.forEach(t => {
+        const alive = t.alive ? 'Alive' : `Fallen${t.cause_of_death ? ' ('+t.cause_of_death+')' : ''}`;
+        const traits = (t.traits && t.traits.length) ? ` Traits: ${t.traits.join(', ')}` : '';
+        appendLog(` - ${t.name} [D${t.district}] ${alive} | H:${t.hunger} S:${t.stamina} Reg:${t.region}.${traits}`);
+      });
+    } catch {}
+    downloadBtn.disabled = false;
+  } catch(e){
+    appendLog('Runtime error: ' + e);
+    statusEl.textContent='Error.';
+  }
+});
+
+  // -------------- Step Mode Wiring --------------
+  async function startStepMode(){
+    if(!pyodide || !simulatorReady){ appendLog('Simulator not loaded yet.'); return; }
+    syncBuildersToJSON();
+    lastRunData = null;
+    downloadBtn.disabled = true;
+    stepFinished = false;
+    stepActive = false;
+    lastLogIndex = 0;
+    statusEl.textContent = 'Preparing step mode...';
+
+    const seedVal = document.getElementById('seed').value.trim();
+    const daysVal = parseInt(document.getElementById('days').value,10) || 30;
+    const strictVal = document.getElementById('strict').value.trim();
+    const rosterTxt = document.getElementById('roster').value.trim();
+    const contentTxt = document.getElementById('content').value.trim();
+    const pySeedLiteral = seedVal !== '' && /^\d+$/.test(seedVal) ? seedVal : 'None';
+    const pyStrictLiteral = strictVal !== '' && /^\d+$/.test(strictVal) ? strictVal : 'None';
+
+    const initCode = `
+  import importlib, json
+  hm = importlib.import_module('hunger_main')
+  # Optional content integration
+  try:
+    load_custom_content_from_string = getattr(hm, 'load_custom_content_from_string', None)
+    integrate_custom_content = getattr(hm, 'integrate_custom_content', None)
+    content_text = ${JSON.stringify(contentTxt)}
+    if content_text and load_custom_content_from_string and integrate_custom_content:
+      try:
+        custom = load_custom_content_from_string(content_text)
+        integrate_custom_content(custom)
+      except Exception:
+        pass
+  except Exception:
+    pass
+
+  # Parse roster
+  roster = None
+  roster_text = ${JSON.stringify(rosterTxt)}
+  if roster_text:
+    try:
+      roster = json.loads(roster_text)
+    except Exception:
+      roster = None
+
+  sim = hm.run_simulation(seed=${pySeedLiteral}, max_days=${daysVal}, roster=roster, strict_shutdown=${pyStrictLiteral}, verbose=True, log_callback=None, enable_plugins=False)
+  # Rebuild sim to ensure we do not auto-run; run_simulation() already ran; so we must construct a fresh simulator without running.
+  # Fall back: construct directly
+  if getattr(sim, 'day_count', None) not in (0, None) or len(getattr(sim, 'log', []) or []) > 0:
+    try:
+      sim = hm.HungerBensSimulator(roster if roster is not None else hm.dicty, seed=${pySeedLiteral}, max_days=${daysVal}, verbose=True, export_log=None, strict_shutdown=${pyStrictLiteral}, log_callback=None)
+    except Exception:
+      sim = hm.HungerBensSimulator(hm.dicty, seed=${pySeedLiteral}, max_days=${daysVal}, verbose=True, export_log=None, strict_shutdown=${pyStrictLiteral}, log_callback=None)
+  sim.start_stepping()
+  hm._web_sim = sim
+  len(sim.log)
+  `;
+    try {
+      const initLen = await pyodide.runPythonAsync(initCode);
+      stepActive = true;
+      stepFinished = false;
+      lastLogIndex = Number(initLen) || 0;
+      statusEl.textContent = 'Step mode ready. Press Step or use jump controls.';
+      stepStatus.textContent = 'Step mode: ready';
+    } catch(e){
+      statusEl.textContent = 'Error setting up step mode.';
+      appendLog('Step init error: ' + e);
+    }
+  }
+
+  async function fetchNewLogs(){
+    const code = `
+  import importlib, json
+  hm = importlib.import_module('hunger_main')
+  sim = getattr(hm, '_web_sim', None)
+  logs = sim.log if sim else []
+  start = ${lastLogIndex}
+  new = logs[start:]
+  json.dumps(new)
+  `;
+    const res = await pyodide.runPythonAsync(code);
+    let arr = [];
+    try { arr = JSON.parse(res); } catch {}
+    if(Array.isArray(arr) && arr.length){
+      arr.forEach(appendLog);
+      lastLogIndex += arr.length;
+    }
+  }
+
+  async function stepOnce(){
+    if(!stepActive || stepFinished){ return; }
+    const code = `
+  import importlib
+  hm = importlib.import_module('hunger_main')
+  sim = getattr(hm, '_web_sim', None)
+  bool(sim.step_once()) if sim else True
+  `;
+    const finished = await pyodide.runPythonAsync(code);
+    await fetchNewLogs();
+    stepFinished = !!finished;
+    stepStatus.textContent = stepFinished ? 'Finished' : 'Stepped 1 event';
+    if(stepFinished){ await collectResultFromCurrentSim(); }
+  }
+
+  async function stepN(n){
+    n = Math.max(1, Math.min(1000, n|0));
+    for(let i=0; i<n; i++){
+      if(stepFinished) break;
+      await stepOnce();
+    }
+  }
+
+  async function nextDay(){
+    if(!stepActive || stepFinished) return;
+    const code = `
+  import importlib, json
+  hm = importlib.import_module('hunger_main')
+  sim = getattr(hm, '_web_sim', None)
+  prev = getattr(sim, '_step_phase', None)
+  finished = sim.step_once()
+  cur = getattr(sim, '_step_phase', None)
+  json.dumps({'finished': bool(finished), 'prev': prev, 'cur': cur})
+  `;
+    // Advance until we hit the night header (setup_night -> night)
+    for(let guard=0; guard<2000; guard++){
+      const jsonStr = await pyodide.runPythonAsync(code);
+      let r = {finished:false, prev:null, cur:null};
+      try { r = JSON.parse(jsonStr); } catch {}
+      await fetchNewLogs();
+      if(r.finished){ stepFinished = true; break; }
+      if(r.prev === 'setup_night' && r.cur === 'night') break;
+    }
+    if(stepFinished){ await collectResultFromCurrentSim(); }
+  }
+
+  async function nextNight(){
+    if(!stepActive || stepFinished) return;
+    // Ensure we reach the night block first
+    await nextDay();
+    if(stepFinished) return;
+    const code = `
+  import importlib, json
+  hm = importlib.import_module('hunger_main')
+  sim = getattr(hm, '_web_sim', None)
+  prev = getattr(sim, '_step_phase', None)
+  finished = sim.step_once()
+  cur = getattr(sim, '_step_phase', None)
+  json.dumps({'finished': bool(finished), 'prev': prev, 'cur': cur})
+  `;
+    // Consume night until we transition to setup_day
+    for(let guard=0; guard<5000; guard++){
+      const jsonStr = await pyodide.runPythonAsync(code);
+      let r = {finished:false, prev:null, cur:null};
+      try { r = JSON.parse(jsonStr); } catch {}
+      await fetchNewLogs();
+      if(r.finished){ stepFinished = true; break; }
+      if(r.prev === 'night' && r.cur === 'setup_day') break;
+    }
+    if(stepFinished){ await collectResultFromCurrentSim(); }
+  }
+
+  async function untilLeft(x){
+    if(!stepActive || stepFinished) return;
+    x = Math.max(1, x|0);
+    const aliveCode = `
+  import importlib
+  hm = importlib.import_module('hunger_main')
+  sim = getattr(hm, '_web_sim', None)
+  sum(1 for t in sim.tributes if t.alive) if sim else 0
+  `;
+    const stepCode = `
+  import importlib
+  hm = importlib.import_module('hunger_main')
+  sim = getattr(hm, '_web_sim', None)
+  bool(sim.step_once()) if sim else True
+  `;
+    for(let guard=0; guard<10000; guard++){
+      const alive = Number(await pyodide.runPythonAsync(aliveCode)) || 0;
+      if(alive <= x) break;
+      const finished = await pyodide.runPythonAsync(stepCode);
+      await fetchNewLogs();
+      if(finished){ stepFinished = true; break; }
+    }
+    if(stepFinished){ await collectResultFromCurrentSim(); }
+  }
+
+  async function finishRun(){
+    if(!stepActive || stepFinished) return;
+    const stepCode = `
+  import importlib
+  hm = importlib.import_module('hunger_main')
+  sim = getattr(hm, '_web_sim', None)
+  bool(sim.step_once()) if sim else True
+  `;
+    for(let guard=0; guard<50000; guard++){
+      const finished = await pyodide.runPythonAsync(stepCode);
+      await fetchNewLogs();
+      if(finished){ stepFinished = true; break; }
+    }
+    if(stepFinished){ await collectResultFromCurrentSim(); }
+  }
+
+  async function collectResultFromCurrentSim(){
+    // Build the same result JSON the auto-run uses, but from hm._web_sim
+    const py = `
+  import json, datetime, importlib
+  hm = importlib.import_module('hunger_main')
+  sim = getattr(hm, '_web_sim', None)
+  def _sanitize(o):
+    if o is None or isinstance(o, (bool, int, float, str)): return o
+    if isinstance(o, (list, tuple, set)): return [_sanitize(x) for x in list(o)]
+    if isinstance(o, dict): return {str(k): _sanitize(v) for k,v in o.items()}
+    if isinstance(o, datetime.datetime): return o.isoformat()
+    try:
+      from dataclasses import asdict, is_dataclass
+      if is_dataclass(o): return _sanitize(asdict(o))
+    except Exception: pass
+    try:
+      return o.isoformat()
+    except Exception: pass
+    return str(o)
+  alliances = {}
+  try:
+    alliances_obj = getattr(sim, 'alliances', None)
+    to_dict = getattr(alliances_obj, 'to_dict', None)
+    alliances = _sanitize(to_dict()) if callable(to_dict) else _sanitize(alliances_obj)
+  except Exception as e:
+    alliances = {}
+  tributes_out = []
+  try:
+    tribs = getattr(sim, 'tributes', [])
+    to_dict_fn = getattr(sim, '_tribute_to_dict', None)
+    for t in tribs:
+      td = None
+      if callable(to_dict_fn):
+        try: td = to_dict_fn(t)
+        except Exception: td = None
+      if td is None:
+        td = {
+          'key': getattr(t,'key', None),
+          'name': getattr(t,'name',''),
+          'age': getattr(t,'age', None),
+          'gender': getattr(t,'gender', None),
+          'district': getattr(t,'district', None),
+          'alive': bool(getattr(t,'alive', True)),
+          'kills': int(getattr(t,'kills', 0) or 0),
+          'morale': int(getattr(t,'morale', 0) or 0),
+          'notoriety': int(getattr(t,'notoriety', 0) or 0),
+          'status': list(getattr(t,'status', []) or []),
+          'inventory': list(getattr(t,'inventory', []) or []),
+          'cause_of_death': getattr(t,'cause_of_death', None),
+          'hunger': int(getattr(t,'hunger', 0) or 0),
+          'stamina': int(getattr(t,'stamina', 0) or 0),
+          'traits': list(getattr(t,'traits', []) or []),
+          'region': getattr(t,'region', None),
+        }
+      tributes_out.append(_sanitize(td))
+  except Exception as e:
+    tributes_out = []
+  try:
+    death_log = _sanitize(getattr(sim, 'death_log', []))
+  except Exception as e:
+    death_log = []
+  try:
+    stats = _sanitize(getattr(sim, 'history_stats', {}))
+  except Exception as e:
+    stats = {}
+  result = {
+    'seed': getattr(sim, 'seed', None),
+    'max_days': getattr(sim, 'max_days', None),
+    'strict_shutdown': getattr(sim, 'strict_shutdown', None),
+    'log': list(getattr(sim, 'log', []) or []),
+    'alliances': alliances,
+    'tributes': tributes_out,
+    'death_log': death_log,
+    'stats': stats,
+  }
+  import json
+  json.dumps(result)
+  `;
+    try{
+      const res = await pyodide.runPythonAsync(py);
+      lastRunData = JSON.parse(res);
+      downloadBtn.disabled = false;
+      statusEl.textContent = 'Step run complete.';
+    }catch(e){
+      appendLog('Collect error: ' + e);
+    }
+  }
+
+  // Hook step buttons
+  startStepBtn.addEventListener('click', async () => {
+    logEl.textContent='';
+    await startStepMode();
+  });
+  stepOnceBtn.addEventListener('click', async () => { await stepOnce(); });
+  stepNBtn.addEventListener('click', async () => {
+    const n = parseInt(stepNInput.value, 10) || 1;
+    await stepN(n);
+  });
+  nextDayBtn.addEventListener('click', async () => { await nextDay(); });
+  nextNightBtn.addEventListener('click', async () => { await nextNight(); });
+  untilLeftBtn.addEventListener('click', async () => {
+    const x = parseInt(untilLeftInput.value, 10) || 1;
+    await untilLeft(x);
+  });
+  finishBtn.addEventListener('click', async () => { await finishRun(); });
+
+downloadBtn.addEventListener('click', () => {
+  if(!lastRunData){ return; }
+  const blob = new Blob([JSON.stringify(lastRunData, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'hunger_bens_run.json';
+  a.click();
+});
+</script>
+</body>
+</html>
+
